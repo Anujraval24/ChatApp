@@ -1,0 +1,241 @@
+<html>
+
+<head>
+    <title>Socket IO Chat App</title>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" />
+    <script src="https://code.jquery.com/jquery-3.3.1.js" integrity="sha256-2Kok7MbOyxpgUVvAk/HJ2jigOSYS2auK4Pfzbm7uH60="
+        crossorigin="anonymous"></script>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous"> -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link href="lib/css/emoji.css" rel="stylesheet">
+    <style>
+        body {
+                margin-top: 30px;
+            }
+            #messageArea{
+                display: none;
+            }
+            #chat{
+                background-color: #f5f5f5;
+                border: 1px solid #e3e3e3;
+                padding:10px;
+                max-height: 400px;
+                overflow-x: scroll;
+            }
+            .chatMsg{
+                padding:10px;
+                width: 100%;
+                word-break: break-all;
+            }
+            /* .formInput{
+                
+            } */
+            .typing{
+                word-break: break-all;
+            }
+            .chatMsg.typeLink{
+                background-color: #c3c1c1;
+            }
+            .chatMsg img{
+                width: 100px;
+            }
+            .chatMsg .metaTitle{
+                font-weight: bold;
+            }
+            .chatMsg .link{
+                font-style: italic;
+            }
+        </style>
+</head>
+
+<body>
+    <div class="container">
+        <div id="userFormArea" class="row">
+            <div class="col-md-12">
+                <form id="userForm" onsubmit="saveUsername();">
+                    <div class="form-group">
+                        <label>Enter Username</label>
+                        <input class="form-control" placeholder="Enter Username" id="username" />
+                        <br />
+                        <input type="Submit" class="btn btn-primary" value="Login" />
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div id="messageArea" class="row">
+            <div class="col-md-4">
+                <div class="well">
+                    <h3> Online Users</h3>
+                    <ul class="list-group" id="users"></ul>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="chat">
+                    <form id="messageForm">
+                        <div class="form-group">
+                            <div id="chat"> </div>
+
+                            <div class="formInput">
+                                <label>Enter Message</label>
+                                <p class="lead emoji-picker-container">
+                                    <textarea class="form-control" onkeypress=onTestChange(); id="message"
+                                        data-emojiable="true"></textarea><br /></p>
+                                <input type="Submit" class="btn btn-primary" value="Send Message" />
+                                <br />
+                                <div style="min-height:50px"> <span id="typingEvent"></span></div>
+                            </div>
+
+                    </form>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
+    <script src="lib/js/config.js"></script>
+    <script src="lib/js/emoji-picker.js"></script>
+    <script src="lib/js/jquery.emojiarea.js"></script>
+    <script src="lib/js/util.js"></script>
+
+    <script>
+        $(function () {
+            // Initializes and creates emoji set from sprite sheet
+            window.emojiPicker = new EmojiPicker({
+                emojiable_selector: '[data-emojiable=true]',
+                assetsPath: 'lib/img/',
+                popupButtonClasses: 'fa fa-smile-o'
+            });
+            window.emojiPicker.discover();
+        });
+    </script>
+    <script>
+        var socket;
+        $(function () {
+            socket = io.connect();
+            var $messageForm = $('#messageForm');
+            var $message = $('#message');
+            var $chat = $('#chat');
+            var $userForm = $('#userForm');
+            var $userFormArea = $('#userFormArea');
+            var $messageArea = $('#messageArea');
+            var $users = $('#users');
+            var $username = $('#username');
+
+            $messageForm.submit(function (e) {
+                e.preventDefault();
+                socket.emit('send message', $message.val());
+                $message.val('');
+            });
+
+            socket.on('new message', function (data) {
+                $("#typingEvent").html("");
+                if (data.type == "text") {
+
+                    $chat.append('<div class="chatMsg"> <strong>' + data.user + ' </strong> : ' +
+                        data.msg + '<i><br><small style="font-size: 9px; float: right;">' + data.time +
+                        '</small></i></div>');
+                }
+
+                if (data.type == "link") {
+                    
+                    $chat.append('<div class="chatMsg typeLink"> <a href="'+data.msg.url+'" target="_blank"> <img src="'+data.msg.image+'"><div class="metaTitle">'+data.msg.title+'</div><div class="link">'+data.msg.url+'</div></a></div>');
+                }
+
+                    $('#chat').scrollTop($('#chat')[0].scrollHeight);
+
+                 $message.val('');
+            });
+
+            $userForm.submit(function (e) {
+                e.preventDefault();
+                //console.log('submited');
+                socket.emit('new user', $username.val(), function (data) {
+                    if (data) {
+                        $userFormArea.hide();
+                        $messageArea.show();
+                    }
+                });
+                $username.val('');
+
+            });
+
+            socket.on('get users', function (data) {
+                var html = '';
+                for (i = 0; i < data.length; i++) {
+                    html += '<li class="list-group-item">' + data[i] + '</li>';
+
+                }
+                $users.html(html);
+            });
+
+            socket.on('typing', function (data) {
+                var username = data.user.replace(/ /g, '-');
+                if (data.user !== localStorage.getItem('username')) {
+                    if (!$("." + username).html()) {
+                        $("#typingEvent").append("<div class='" + username + " typing' ></div>");
+                    }
+
+                    $("." + username).html("<b>" + data.user + "</b>" + "<b> is typing </b>" + "<i>" +
+                        data.message + "</i>");
+                }
+
+            });
+        });
+
+        function onTestChange() {
+            var key = window.event.keyCode;
+
+            let message = $("#message").val();
+            //Typing event send
+            if (message) {
+                var data = {
+                    message: message,
+                    user: localStorage.getItem('username')
+                }
+                socket.emit('typing', data);
+            }
+
+            if (window.event.keyCode == 13 && !window.event.shiftKey) {
+
+                let message = $("#message").val();
+                $("#message").val("");
+                if (message) {
+                    socket.emit('send message', message);
+                }
+                return false;
+            }
+
+            if (key === 13 && window.event.shiftKey) {
+                let message = $("#message").val();
+                return false;
+            } else {
+                return true;
+            }
+        }
+
+        function saveUsername() {
+            localStorage.setItem("username", $("#username").val());
+        }
+        // Google Analytics
+        (function (i, s, o, g, r, a, m) {
+            i['GoogleAnalyticsObject'] = r;
+            i[r] = i[r] || function () {
+                (i[r].q = i[r].q || []).push(arguments)
+            }, i[r].l = 1 * new Date();
+            a = s.createElement(o),
+                m = s.getElementsByTagName(o)[0];
+            a.async = 1;
+            a.src = g;
+            m.parentNode.insertBefore(a, m)
+        })(window, document, 'script', '//www.google-analytics.com/analytics.js', 'ga');
+
+        ga('create', 'UA-49610253-3', 'auto');
+        ga('send', 'pageview');
+    </script>
+</body>
+
+</html>

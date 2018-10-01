@@ -1,0 +1,28 @@
+{
+  "name": "chat-new",
+  "version": "2.0.0",
+  "description": "Socket IO Chat app using nodejs",
+  "main": "server.js",
+  "scripts": {
+    "test": "npm start"
+  },
+  "keywords": [
+    "node",
+    "socket",
+    "chat",
+    "tcp",
+    "ip"
+  ],
+  "author": "Anuj Raval",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.16.3",
+    "get-urls": "^8.0.0",
+    "get-urls-to-array": "^1.0.0",
+    "moment": "^2.22.2",
+    "node-emojify": "0.0.14",
+    "router": "^1.3.3",
+    "socket.io": "*",
+    "url-metadata": "^2.1.7"
+  }
+}
